@@ -121,20 +121,58 @@ class CUBDatasetProcessor:
     def load_image_attributes(self) -> pd.DataFrame:
         """Load per-image 312-dimensional attribute annotations."""
         # CUB has image_attribute_labels.txt with format: image_id attribute_id is_present certainty
-        attr_df = pd.read_csv(
-            self.image_attributes_file,
-            sep=' ',
-            header=None,
-            names=['image_id', 'attribute_id', 'is_present', 'certainty']
-        )
+        try:
+            attr_df = pd.read_csv(
+                self.image_attributes_file,
+                sep=' ',
+                header=None,
+                names=['image_id', 'attribute_id', 'is_present', 'certainty'],
+                on_bad_lines='skip',  # Skip malformed lines
+                engine='python'       # Use python engine for better error handling
+            )
+        except Exception as e:
+            print(f"Error reading attributes file with pandas, trying manual parsing: {e}")
+            # Fallback to manual parsing
+            attr_data = []
+            with open(self.image_attributes_file, 'r') as f:
+                for line_num, line in enumerate(f, 1):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    
+                    parts = line.split()
+                    if len(parts) >= 4:
+                        # Take only the first 4 fields, ignore extra
+                        attr_data.append([
+                            int(parts[0]),    # image_id
+                            int(parts[1]),    # attribute_id
+                            int(parts[2]),    # is_present
+                            float(parts[3])   # certainty
+                        ])
+                    else:
+                        print(f"Skipping malformed line {line_num}: {line}")
+            
+            attr_df = pd.DataFrame(attr_data, columns=['image_id', 'attribute_id', 'is_present', 'certainty'])
+        
+        print(f"Loaded {len(attr_df)} attribute annotations")
+        print(f"Image IDs range: {attr_df['image_id'].min()} - {attr_df['image_id'].max()}")
+        print(f"Attribute IDs range: {attr_df['attribute_id'].min()} - {attr_df['attribute_id'].max()}")
+        print(f"Unique images: {attr_df['image_id'].nunique()}")
+        print(f"Unique attributes: {attr_df['attribute_id'].nunique()}")
         
         # Pivot to get 312 attributes per image
         # Use is_present as binary labels (1/0)
-        attrs_pivot = attr_df.pivot(
-            index='image_id', 
-            columns='attribute_id', 
-            values='is_present'
-        ).fillna(0)
+        try:
+            attrs_pivot = attr_df.pivot(
+                index='image_id', 
+                columns='attribute_id', 
+                values='is_present'
+            ).fillna(0)
+        except Exception as e:
+            print(f"Error during pivot operation: {e}")
+            print("Attempting to handle duplicate entries...")
+            # Handle potential duplicates by taking the mean
+            attrs_pivot = attr_df.groupby(['image_id', 'attribute_id'])['is_present'].mean().unstack().fillna(0)
         
         # Ensure we have all 312 attributes
         expected_attrs = list(range(1, 313))  # 1-312

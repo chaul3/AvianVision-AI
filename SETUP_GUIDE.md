@@ -146,6 +146,19 @@ Visit `http://localhost:5001` to use the bird identification interface.
 
 ## 🔧 Troubleshooting
 
+### Dataset Parsing Issues
+If you encounter "Error tokenizing data" or "Expected X fields, saw Y":
+
+```bash
+# Run diagnostic tool
+python diagnose_dataset.py
+
+# This will:
+# 1. Check all dataset files for formatting issues
+# 2. Show problematic lines
+# 3. Offer to fix malformed files automatically
+```
+
 ### Virtual Environment Issues
 ```bash
 # Recreate virtual environment
@@ -172,6 +185,30 @@ training:
 
 ### GPU Issues
 For CPU-only training, the pipeline will automatically detect and use CPU.
+
+### Cluster-Specific Issues
+
+**File Encoding Problems:**
+```bash
+# Check file encoding
+file -i data/CUB_200_2011/attributes/image_attribute_labels.txt
+
+# Convert if needed
+iconv -f ISO-8859-1 -t UTF-8 file.txt > file_utf8.txt
+```
+
+**Large Dataset Memory Issues:**
+```bash
+# Use smaller batches and fewer workers
+export CUDA_VISIBLE_DEVICES=0  # Use single GPU
+python evaluate_pipeline.py --config config_demo.yaml
+```
+
+**Permission Issues:**
+```bash
+# Ensure proper permissions
+chmod -R 755 data/CUB_200_2011/
+```
 
 ## 📞 Support
 
