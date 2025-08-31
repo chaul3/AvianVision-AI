@@ -1,0 +1,80 @@
+# CUB-200-2011 Bird Species Identification Pipeline Configuration
+
+# Data Configuration
+data:
+  cub_root: "/path/to/CUB_200_2011"  # Update with actual path
+  output_dir: "outputs"
+  val_split_ratio: 0.2
+  
+# Attribute Model Configuration
+model:
+  backbone: "resnet50"  # or "resnet101"
+  pretrained: true
+  dropout: 0.5
+  num_attributes: 312
+
+# Training Configuration
+training:
+  batch_size: 32
+  learning_rate: 1e-4
+  weight_decay: 1e-4
+  num_epochs: 50
+  early_stop_patience: 10
+  lr_patience: 3
+  use_pos_weights: true
+  num_workers: 4
+  
+  # Augmentation settings
+  augmentation:
+    resize_size: 256
+    crop_size: 224
+    horizontal_flip_prob: 0.5
+    color_jitter:
+      brightness: 0.1
+      contrast: 0.1
+      saturation: 0.1
+      hue: 0.05
+
+# Threshold Calibration Configuration
+calibration:
+  metric: "f1"  # or "youden"
+  split: "val"  # validation split for calibration
+  
+# Candidate Shortlisting Configuration
+shortlisting:
+  k_candidates: 10
+  min_similarity: 0.0
+  use_ground_truth_centroids: true
+
+# LLM Configuration
+llm:
+  model_name: "local"  # Replace with actual model
+  temperature: 0.2
+  max_tokens: 500
+  
+# Evaluation Configuration
+evaluation:
+  test_split: "test"
+  metrics:
+    - "accuracy"
+    - "top_k_accuracy"
+    - "recall_at_k"
+    - "confidence_calibration"
+  k_values: [1, 3, 5, 10, 15, 20]
+
+# Experiment Tracking (optional)
+wandb:
+  enabled: false
+  project: "cub-bird-identification"
+  entity: null  # Your wandb entity
+  tags: ["cub", "attribute-detection", "llm-reasoning"]
+
+# Output Paths
+outputs:
+  dataset_manifest: "outputs/dataset_manifest.csv"
+  attribute_prevalence: "outputs/attribute_prevalence.json"
+  model_weights: "outputs/attr_model_best.pt"
+  thresholds: "outputs/attr_thresholds.json"
+  centroids: "outputs/species_centroids_ground_truth.npz"
+  attribute_mapping: "configs/attribute_mapping.yaml"
+  results: "outputs/pipeline_results.json"

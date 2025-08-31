@@ -1,0 +1,49 @@
+# Configuration for cluster training
+# Use this with your evaluate_pipeline.py
+
+data:
+  cub_root: "/path/to/CUB-200-2011"  # Update this path
+  output_dir: "outputs"
+
+training:
+  batch_size: 32
+  num_epochs: 50
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  num_workers: 4
+
+model:
+  backbone: "resnet50"
+  num_attributes: 312
+  dropout_rate: 0.5
+
+calibration:
+  split: "val"
+  metric: "f1"
+
+shortlisting:
+  k_candidates: 5
+  min_similarity: 0.1
+  use_ground_truth_centroids: false
+
+llm:
+  model_name: "llama3"
+  temperature: 0.3
+  max_tokens: 300
+
+evaluation:
+  test_split: "test"
+  k_values: [1, 3, 5, 10]
+
+outputs:
+  dataset_manifest: "outputs/dataset_manifest.csv"
+  attribute_prevalence: "outputs/attribute_prevalence.json"
+  model_weights: "outputs/bird_attributes_model.pth"
+  thresholds: "outputs/optimal_thresholds.json"
+  centroids: "outputs/species_centroids.npy"
+  attribute_mapping: "outputs/attribute_mapping.json"
+  results: "outputs/evaluation_results.json"
+
+wandb:
+  enabled: false
+  project: "bird-identification"
