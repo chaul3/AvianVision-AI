@@ -121,10 +121,23 @@ class CUBDatasetProcessor:
     def load_image_attributes(self) -> pd.DataFrame:
         """Load per-image 312-dimensional attribute annotations."""
         # CUB has image_attribute_labels.txt with format: image_id attribute_id is_present certainty
+        
+        print(f"Loading attributes from: {self.image_attributes_file}")
+        
+        # First, let's examine the file structure
+        with open(self.image_attributes_file, 'r') as f:
+            first_lines = [f.readline().strip() for _ in range(5)]
+        
+        print("First 5 lines of attribute file:")
+        for i, line in enumerate(first_lines):
+            if line:
+                parts = line.split()
+                print(f"  Line {i+1}: {len(parts)} fields - {line[:100]}")
+        
         try:
             attr_df = pd.read_csv(
                 self.image_attributes_file,
-                sep=' ',
+                sep=r'\s+',  # Use regex for multiple whitespace
                 header=None,
                 names=['image_id', 'attribute_id', 'is_present', 'certainty'],
                 on_bad_lines='skip',  # Skip malformed lines
@@ -134,6 +147,8 @@ class CUBDatasetProcessor:
             print(f"Error reading attributes file with pandas, trying manual parsing: {e}")
             # Fallback to manual parsing
             attr_data = []
+            skipped_lines = 0
+            
             with open(self.image_attributes_file, 'r') as f:
                 for line_num, line in enumerate(f, 1):
                     line = line.strip()
@@ -142,16 +157,22 @@ class CUBDatasetProcessor:
                     
                     parts = line.split()
                     if len(parts) >= 4:
-                        # Take only the first 4 fields, ignore extra
-                        attr_data.append([
-                            int(parts[0]),    # image_id
-                            int(parts[1]),    # attribute_id
-                            int(parts[2]),    # is_present
-                            float(parts[3])   # certainty
-                        ])
+                        try:
+                            # Take only the first 4 fields, ignore extra
+                            attr_data.append([
+                                int(parts[0]),    # image_id
+                                int(parts[1]),    # attribute_id
+                                int(parts[2]),    # is_present
+                                float(parts[3])   # certainty
+                            ])
+                        except (ValueError, IndexError) as e:
+                            print(f"Error parsing line {line_num}: {line[:50]} - {e}")
+                            skipped_lines += 1
                     else:
                         print(f"Skipping malformed line {line_num}: {line}")
+                        skipped_lines += 1
             
+            print(f"Manual parsing: {len(attr_data)} valid lines, {skipped_lines} skipped")
             attr_df = pd.DataFrame(attr_data, columns=['image_id', 'attribute_id', 'is_present', 'certainty'])
         
         print(f"Loaded {len(attr_df)} attribute annotations")
@@ -159,6 +180,25 @@ class CUBDatasetProcessor:
         print(f"Attribute IDs range: {attr_df['attribute_id'].min()} - {attr_df['attribute_id'].max()}")
         print(f"Unique images: {attr_df['image_id'].nunique()}")
         print(f"Unique attributes: {attr_df['attribute_id'].nunique()}")
+        
+        # Check for expected ranges
+        expected_images = 11788  # CUB has 11,788 images
+        expected_attributes = 312  # CUB has 312 attributes
+        
+        if attr_df['image_id'].max() != expected_images:
+            print(f"⚠️  WARNING: Expected max image_id {expected_images}, got {attr_df['image_id'].max()}")
+        
+        if attr_df['attribute_id'].max() != expected_attributes:
+            print(f"⚠️  WARNING: Expected max attribute_id {expected_attributes}, got {attr_df['attribute_id'].max()}")
+        
+        # Check for duplicates
+        duplicates = attr_df.groupby(['image_id', 'attribute_id']).size()
+        num_duplicates = (duplicates > 1).sum()
+        if num_duplicates > 0:
+            print(f"⚠️  Found {num_duplicates} duplicate image-attribute pairs")
+            # Remove duplicates by taking the first occurrence
+            attr_df = attr_df.drop_duplicates(subset=['image_id', 'attribute_id'], keep='first')
+            print(f"After removing duplicates: {len(attr_df)} annotations")
         
         # Pivot to get 312 attributes per image
         # Use is_present as binary labels (1/0)
@@ -178,11 +218,18 @@ class CUBDatasetProcessor:
         expected_attrs = list(range(1, 313))  # 1-312
         missing_attrs = set(expected_attrs) - set(attrs_pivot.columns)
         
-        for attr in missing_attrs:
-            attrs_pivot[attr] = 0
+        if missing_attrs:
+            print(f"⚠️  Missing {len(missing_attrs)} attributes, adding as zeros")
+            # Create a dataframe with missing attributes as zeros
+            missing_df = pd.DataFrame(0, index=attrs_pivot.index, columns=list(missing_attrs))
+            # Concatenate instead of inserting one by one to avoid performance warning
+            attrs_pivot = pd.concat([attrs_pivot, missing_df], axis=1)
             
         # Sort columns to ensure consistent ordering
         attrs_pivot = attrs_pivot[expected_attrs]
+        
+        # Convert column names to strings for consistency
+        attrs_pivot.columns = [str(col) for col in attrs_pivot.columns]
         
         # Reset index to get image_id as column
         attrs_pivot = attrs_pivot.reset_index()
@@ -215,15 +262,43 @@ class CUBDatasetProcessor:
     
     def compute_attribute_prevalence(self, train_df: pd.DataFrame) -> Dict[str, float]:
         """Compute per-attribute prevalence in training set for loss weighting."""
-        attr_cols = [f'{i}' for i in range(1, 313)]  # attributes 1-312
+        attr_cols = [str(i) for i in range(1, 313)]  # attributes 1-312 as strings
+        
+        print(f"Computing prevalence for {len(attr_cols)} attributes")
+        print(f"DataFrame columns: {list(train_df.columns)[:10]}...")  # Show first 10 columns
+        print(f"Looking for attribute columns: {attr_cols[:5]}...")  # Show first 5 expected
+        
+        # Check which attribute columns exist
+        available_attrs = [col for col in attr_cols if col in train_df.columns]
+        missing_attrs = [col for col in attr_cols if col not in train_df.columns]
+        
+        print(f"Available attribute columns: {len(available_attrs)}")
+        if missing_attrs:
+            print(f"Missing attribute columns: {len(missing_attrs)} (first 5: {missing_attrs[:5]})")
+        
+        if not available_attrs:
+            print("❌ No attribute columns found! Check column naming.")
+            # Fallback: try to find numeric columns that might be attributes
+            numeric_cols = [col for col in train_df.columns if str(col).isdigit()]
+            print(f"Found numeric columns: {numeric_cols[:10]}...")
+            if numeric_cols:
+                available_attrs = [str(col) for col in numeric_cols if 1 <= int(col) <= 312]
+                print(f"Using numeric columns as attributes: {len(available_attrs)}")
         
         prevalence = {}
-        train_attrs = train_df[train_df['split'] == 'train'][attr_cols]
+        train_split = train_df[train_df['split'] == 'train']
         
-        for attr in attr_cols:
-            pos_count = train_attrs[attr].sum()
-            total_count = len(train_attrs)
-            prevalence[f'attr_{attr}'] = float(pos_count / total_count)
+        for attr in available_attrs:
+            if attr in train_split.columns:
+                pos_count = train_split[attr].sum()
+                total_count = len(train_split)
+                prevalence[f'attr_{attr}'] = float(pos_count / total_count) if total_count > 0 else 0.0
+            else:
+                prevalence[f'attr_{attr}'] = 0.0
+        
+        # Add zero prevalence for missing attributes
+        for attr in missing_attrs:
+            prevalence[f'attr_{attr}'] = 0.0
         
         return prevalence
     
