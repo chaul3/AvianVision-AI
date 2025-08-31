@@ -44,6 +44,12 @@ class CUBAttributeDataset(Dataset):
         # Extract attribute columns (1-312)
         self.attr_cols = [str(i) for i in range(1, 313)]
         
+        # Debug: Check attribute values range
+        if len(self.data) > 0:
+            attr_values = self.data[self.attr_cols].values
+            print(f"Dataset {split} - Attribute values range: {attr_values.min():.3f} to {attr_values.max():.3f}")
+            print(f"Unique values in first attribute: {sorted(self.data[self.attr_cols[0]].unique())}")
+        
         print(f"Initialized {split} dataset with {len(self.data)} samples")
     
     def __len__(self):
@@ -60,9 +66,10 @@ class CUBAttributeDataset(Dataset):
             image = self.transform(image)
         
         # Get attribute labels (312-dimensional binary vector)
-        attributes = torch.tensor(
-            row[self.attr_cols].values.astype(np.float32)
-        )
+        # Convert to binary: 0 = absent/uncertain (0,1,2), 1 = present (3,4)
+        attr_values = row[self.attr_cols].values.astype(np.float32)
+        # Convert CUB attribute format: 1,2,3,4 -> 0,0,1,1 (binary)
+        attributes = torch.tensor((attr_values >= 3).astype(np.float32))
         
         return {
             'image': image,
@@ -441,8 +448,8 @@ class AttributeModelTrainer:
                 best_metric = current_metric
                 patience_counter = 0
                 
-                # Save best model
-                model_path = self.output_dir / "attr_model_best.pt"
+                # Save best model with correct filename
+                model_path = self.output_dir / "bird_attributes_model.pth"
                 torch.save({
                     'model_state_dict': model.state_dict(),
                     'config': self.config,
@@ -461,7 +468,7 @@ class AttributeModelTrainer:
                 break
         
         # Save final model
-        final_model_path = self.output_dir / "attr_model_final.pt"
+        final_model_path = self.output_dir / "bird_attributes_model_final.pth"
         torch.save({
             'model_state_dict': model.state_dict(),
             'config': self.config,
