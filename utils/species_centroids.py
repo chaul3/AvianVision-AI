@@ -431,9 +431,9 @@ class AttributeCentroidBuilder:
             for sim_id, sim_score in similar_list:
                 sim_name = self.species_info[sim_id]['species_name']
                 similar_formatted.append({
-                    'species_id': sim_id,
+                    'species_id': int(sim_id),  # Convert numpy int64 to Python int
                     'species_name': sim_name,
-                    'similarity': sim_score
+                    'similarity': float(sim_score)  # Convert numpy float to Python float
                 })
             
             similarity_output[str(species_id)] = {
