@@ -190,8 +190,12 @@ class BirdIdentificationPipeline:
         if model_path.exists():
             try:
                 logger.info("Loading trained bird attribute model...")
-                state_dict = torch.load(model_path, map_location=self.device)
-                resnet.load_state_dict(state_dict)
+                checkpoint = torch.load(model_path, map_location=self.device)
+                # Handle different checkpoint formats
+                if 'model_state_dict' in checkpoint:
+                    resnet.load_state_dict(checkpoint['model_state_dict'])
+                else:
+                    resnet.load_state_dict(checkpoint)
                 logger.info("✅ Trained model loaded successfully!")
                 self.model_type = "trained"
             except Exception as e:
@@ -230,17 +234,40 @@ class BirdIdentificationPipeline:
     
     def load_trained_centroids(self):
         """Load species centroids if available."""
-        centroids_path = Path("models/species_centroids.npy")
+        # Try .npz format first (from training pipeline)
+        centroids_path = Path("models/species_centroids_predicted.npz")
         if centroids_path.exists():
             try:
-                self.species_centroids = np.load(centroids_path)
+                data = np.load(centroids_path)
+                centroids_matrix = data['centroids']
+                species_ids = data['species_ids']
+                
+                # Reorder to match species IDs 1-200
+                max_species = len(self.species_names)
+                self.species_centroids = np.zeros((max_species, 312))
+                
+                for i, species_id in enumerate(species_ids):
+                    if 1 <= species_id <= max_species:
+                        self.species_centroids[species_id-1] = centroids_matrix[i]
+                
+                logger.info(f"✅ Loaded trained species centroids ({centroids_matrix.shape})")
+                return True
+            except Exception as e:
+                logger.warning(f"Failed to load .npz centroids: {e}")
+        
+        # Fallback to .npy format
+        centroids_path_npy = Path("models/species_centroids.npy")
+        if centroids_path_npy.exists():
+            try:
+                self.species_centroids = np.load(centroids_path_npy)
                 if self.species_centroids.shape == (200, 312):
-                    logger.info("✅ Loaded trained species centroids")
+                    logger.info("✅ Loaded trained species centroids (.npy format)")
                     return True
                 else:
                     logger.warning(f"Centroids shape mismatch: {self.species_centroids.shape}, expected (200, 312)")
             except Exception as e:
-                logger.warning(f"Failed to load centroids: {e}")
+                logger.warning(f"Failed to load .npy centroids: {e}")
+        
         return False
     
     def predict_attributes(self, image_tensor):
