@@ -22,24 +22,53 @@
 
 ## 🚀 Quick Start
 
-### 1. Clone the Repository
+### Prerequisites
+- Python 3.8+
+- CUDA-capable GPU (recommended)
+- 8GB+ RAM
+- Internet connection (for dataset download)
+
+### Automated Setup (Recommended)
 ```bash
 git clone https://github.com/chaul3/AvianVision-AI.git
 cd AvianVision-AI
+
+# Option 1: Complete automated setup (downloads dataset + runs pipeline)
+python setup_pipeline.py
+
+# Option 2: Using bash script (Unix/macOS)
+./setup_and_run.sh
 ```
 
-### 2. Install Dependencies
+### Manual Installation
 ```bash
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
 pip install -r requirements.txt
+
+# Download and setup CUB-200-2011 dataset
+python install_dataset.py
+
+# Run pipeline
+python evaluate_pipeline.py --config config_demo.yaml
 ```
 
-### 3. Run the Web Application
+### Web Application Only (No Dataset Required)
 ```bash
+# Install dependencies
+pip install flask pillow numpy torch torchvision
+
+# Run web app in demo mode
 cd webapp
 python app.py
 ```
 
 Visit `http://localhost:5001` to start identifying birds! 🐦
+
+> 📋 **For detailed setup instructions and troubleshooting, see [SETUP_GUIDE.md](SETUP_GUIDE.md)**
 
 ## 📊 Pipeline Architecture
 
