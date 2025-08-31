@@ -136,8 +136,26 @@ class AttributeModelTrainer:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True)
         
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        # Enhanced GPU detection with debugging
+        print("=== GPU Debug Information ===")
+        print(f"CUDA available: {torch.cuda.is_available()}")
+        if torch.cuda.is_available():
+            print(f"CUDA version: {torch.version.cuda}")
+            print(f"GPU count: {torch.cuda.device_count()}")
+            for i in range(torch.cuda.device_count()):
+                print(f"GPU {i}: {torch.cuda.get_device_name(i)}")
+        
+        # Force GPU usage if config specifies it or if CUDA is available
+        force_gpu = config.get('training', {}).get('force_gpu', False)
+        if force_gpu and torch.cuda.is_available():
+            self.device = torch.device('cuda:0')
+        elif torch.cuda.is_available():
+            self.device = torch.device('cuda')
+        else:
+            self.device = torch.device('cpu')
+            
         print(f"Using device: {self.device}")
+        print("==============================")
         
         # Initialize wandb if configured
         if config.get('use_wandb', False):
