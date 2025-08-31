@@ -322,11 +322,14 @@ class AttributeCentroidBuilder:
         species_ids = list(centroids.keys())
         centroid_matrix = np.stack([centroids[sid] for sid in species_ids])
         
+        # Convert species_info keys to strings for JSON serialization
+        species_info_serializable = {str(k): v for k, v in self.species_info.items()}
+        
         np.savez(
             output_path,
             centroids=centroid_matrix,
             species_ids=np.array(species_ids),
-            species_info=json.dumps(self.species_info)
+            species_info=json.dumps(species_info_serializable)
         )
         
         print(f"✓ Centroids saved to {output_path}")
