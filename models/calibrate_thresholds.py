@@ -398,7 +398,7 @@ class ThresholdCalibrator:
         self.plot_calibration_curves(probs, targets, save_path=plot_path)
         
         # Save results
-        thresholds_path = self.output_dir / "attr_thresholds.json"
+        thresholds_path = self.output_dir / "optimal_thresholds.json"
         with open(thresholds_path, 'w') as f:
             json.dump(thresholds, f, indent=2)
         
