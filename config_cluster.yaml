@@ -41,7 +41,7 @@ outputs:
   attribute_prevalence: "outputs/attribute_prevalence.json"
   model_weights: "outputs/bird_attributes_model.pth"
   thresholds: "outputs/optimal_thresholds.json"
-  centroids: "outputs/species_centroids.npy"
+  centroids: "outputs/species_centroids_predicted.npz"
   attribute_mapping: "outputs/attribute_mapping.json"
   results: "outputs/evaluation_results.json"
 
