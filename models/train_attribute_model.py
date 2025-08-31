@@ -280,12 +280,35 @@ class AttributeModelTrainer:
         probs = torch.sigmoid(all_logits).numpy()
         targets_np = all_targets.numpy()
         
-        # Compute mAP (mean Average Precision)
-        map_score = average_precision_score(targets_np, probs, average='macro')
+        print(f"Validation metrics - Probs shape: {probs.shape}, Targets shape: {targets_np.shape}")
+        print(f"Targets range: {targets_np.min():.3f} - {targets_np.max():.3f}")
+        
+        # Ensure targets are binary (0/1)
+        targets_np = (targets_np > 0.5).astype(int)
+        
+        # Compute mAP (mean Average Precision) for multi-label classification
+        # Handle each attribute separately to avoid multiclass-multioutput error
+        valid_aps = []
+        for i in range(targets_np.shape[1]):  # For each attribute
+            # Skip attributes with no positive samples
+            if targets_np[:, i].sum() > 0 and targets_np[:, i].sum() < len(targets_np):
+                try:
+                    ap = average_precision_score(targets_np[:, i], probs[:, i])
+                    valid_aps.append(ap)
+                except Exception:
+                    continue
+        
+        map_score = np.mean(valid_aps) if valid_aps else 0.0
         
         # Compute macro F1 with threshold 0.5
         preds = (probs > 0.5).astype(int)
-        macro_f1 = f1_score(targets_np, preds, average='macro', zero_division=0)
+        
+        # Handle F1 score calculation more robustly
+        try:
+            macro_f1 = f1_score(targets_np, preds, average='macro', zero_division=0)
+        except Exception as e:
+            print(f"Warning: F1 score calculation failed: {e}")
+            macro_f1 = 0.0
         
         avg_loss = total_loss / len(dataloader)
         

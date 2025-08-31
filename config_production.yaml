@@ -1,21 +1,34 @@
-# Demo Configuration for CUB-200-2011 Pipeline
-# Auto-generated with dataset path
+# Production Configuration for CUB-200-2011 Training
+# Optimized for full model training on cluster/GPU
 
 data:
   cub_root: "data/CUB_200_2011"
   output_dir: "outputs"
 
 training:
-  batch_size: 16  # Reasonable for most GPUs
-  num_epochs: 75  # Proper training epochs
+  batch_size: 32
+  num_epochs: 150      # Extended training for better convergence
   learning_rate: 0.001
   weight_decay: 0.0001
-  num_workers: 2  # Fewer workers for demo
+  num_workers: 4
+  
+  # Learning rate scheduling
+  scheduler: "StepLR"
+  step_size: 30
+  gamma: 0.1
+  
+  # Early stopping
+  patience: 20
+  min_delta: 0.001
 
 model:
   backbone: "resnet50"
   num_attributes: 312
   dropout_rate: 0.5
+  
+  # Model optimization
+  pretrained: true
+  freeze_backbone: false
 
 calibration:
   split: "val"
@@ -33,7 +46,7 @@ llm:
 
 evaluation:
   test_split: "test"
-  k_values: [1, 3, 5, 10]
+  k_values: [1, 3, 5, 10, 15, 20]
 
 outputs:
   dataset_manifest: "outputs/dataset_manifest.csv"
@@ -45,5 +58,6 @@ outputs:
   results: "outputs/pipeline_results.json"
 
 wandb:
-  enabled: false
+  enabled: true
   project: "cub-bird-identification"
+  run_name: "resnet50-full-training"

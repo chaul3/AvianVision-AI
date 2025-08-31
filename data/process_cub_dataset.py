@@ -124,16 +124,43 @@ class CUBDatasetProcessor:
         
         print(f"Loading attributes from: {self.image_attributes_file}")
         
-        # First, let's examine the file structure
+        # First, let's examine the file structure in detail
         with open(self.image_attributes_file, 'r') as f:
-            first_lines = [f.readline().strip() for _ in range(5)]
+            first_lines = [f.readline().strip() for _ in range(10)]
         
-        print("First 5 lines of attribute file:")
+        print("First 10 lines of attribute file:")
         for i, line in enumerate(first_lines):
             if line:
                 parts = line.split()
-                print(f"  Line {i+1}: {len(parts)} fields - {line[:100]}")
+                print(f"  Line {i+1}: {len(parts)} fields - {line}")
         
+        # Count total lines and check file size
+        with open(self.image_attributes_file, 'r') as f:
+            total_lines = sum(1 for line in f if line.strip())
+        print(f"Total non-empty lines in file: {total_lines:,}")
+        
+        # Expected: 11,788 images × 312 attributes = 3,677,856 lines
+        expected_lines = 11788 * 312
+        print(f"Expected lines for CUB dataset: {expected_lines:,}")
+        
+        if total_lines != expected_lines:
+            print(f"⚠️  WARNING: Line count mismatch! Got {total_lines:,}, expected {expected_lines:,}")
+            print("This suggests the file format might be different than expected.")
+            
+            # Check if it might be a different format (e.g., one line per image)
+            if total_lines < 20000:  # Much fewer lines than expected
+                print("🔍 Checking if this is a compact format (one line per image)...")
+                with open(self.image_attributes_file, 'r') as f:
+                    sample_line = f.readline().strip()
+                    sample_parts = sample_line.split()
+                    print(f"Sample line has {len(sample_parts)} parts: {sample_line[:100]}...")
+                    
+                    if len(sample_parts) > 10:  # Probably compact format
+                        print("⚠️  This appears to be a compact format, not the standard CUB format!")
+                        print("Attempting to parse as compact format...")
+                        return self._load_compact_attributes()
+        
+        # Continue with standard parsing
         try:
             attr_df = pd.read_csv(
                 self.image_attributes_file,
@@ -174,6 +201,46 @@ class CUBDatasetProcessor:
             
             print(f"Manual parsing: {len(attr_data)} valid lines, {skipped_lines} skipped")
             attr_df = pd.DataFrame(attr_data, columns=['image_id', 'attribute_id', 'is_present', 'certainty'])
+        
+        return self._process_attribute_dataframe(attr_df)
+    
+    def _load_compact_attributes(self) -> pd.DataFrame:
+        """Load attributes from compact format (one line per image with all attributes)."""
+        print("Loading compact format attributes...")
+        
+        attr_data = []
+        with open(self.image_attributes_file, 'r') as f:
+            for line_num, line in enumerate(f, 1):
+                line = line.strip()
+                if not line:
+                    continue
+                
+                parts = line.split()
+                if len(parts) >= 313:  # image_id + 312 attributes
+                    try:
+                        image_id = int(parts[0])
+                        attributes = [float(x) for x in parts[1:313]]  # 312 attributes
+                        
+                        # Convert to long format
+                        for attr_id, attr_val in enumerate(attributes, 1):
+                            attr_data.append([
+                                image_id,
+                                attr_id,
+                                int(attr_val > 0.5),  # Convert to binary
+                                float(attr_val)       # Keep original as certainty
+                            ])
+                    except (ValueError, IndexError) as e:
+                        print(f"Error parsing compact line {line_num}: {e}")
+                        continue
+                else:
+                    print(f"Compact line {line_num} has {len(parts)} parts, expected 313+")
+        
+        print(f"Loaded {len(attr_data)} attribute entries from compact format")
+        attr_df = pd.DataFrame(attr_data, columns=['image_id', 'attribute_id', 'is_present', 'certainty'])
+        return self._process_attribute_dataframe(attr_df)
+    
+    def _process_attribute_dataframe(self, attr_df: pd.DataFrame) -> pd.DataFrame:
+        """Process and validate the attribute dataframe."""
         
         print(f"Loaded {len(attr_df)} attribute annotations")
         print(f"Image IDs range: {attr_df['image_id'].min()} - {attr_df['image_id'].max()}")
