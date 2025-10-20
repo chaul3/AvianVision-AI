@@ -1,6 +1,5 @@
 # Configuration for cluster training
 # Use this with your evaluate_pipeline.py
-
 data:
   cub_root: "/home/leph/AvianVision-AI/data/CUB_200_2011"  # Full absolute path for cluster
   output_dir: "outputs"
