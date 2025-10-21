@@ -4,7 +4,6 @@ Complete Pipeline Evaluation Script
 Runs the full vision→attributes→LLM pipeline for bird species identification.
 Evaluates performance at each stage and generates comprehensive results.
 """
-
 import argparse
 import yaml
 import json
@@ -14,8 +13,6 @@ from typing import Dict, List, Any
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-
-
 def load_config(config_path: str) -> Dict:
     """Load configuration from YAML file."""
     with open(config_path, 'r') as f:
