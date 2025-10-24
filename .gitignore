@@ -20,30 +20,25 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
-
 # Virtual Environment
 venv/
 env/
 ENV/
 .venv/
 .env/
-
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-
 # Jupyter Notebook
 .ipynb_checkpoints
-
 # PyTorch Models (large files)
 *.pth
 *.pt
 *.pkl
 *.pickle
-
 # Data files (can be large)
 *.npy
 *.npz
@@ -51,12 +46,10 @@ data/raw/
 data/CUB-200-2011/
 *.zip
 *.tar.gz
-
 # Logs
 *.log
 logs/
 wandb/
-
 # OS
 .DS_Store
 .DS_Store?
